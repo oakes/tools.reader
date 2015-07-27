@@ -91,7 +91,7 @@
         (if (nil? ch)
           (reader-error rdr "EOF while reading regex")
           (do
-            (.append sb ch )
+            (.append sb ch)
             (when (identical? \\ ch)
               (let [ch (read-char rdr)]
                 (if (nil? ch)
@@ -107,40 +107,40 @@
 
 (defn- read-unicode-char
   ([token offset length base]
-     (let [l (+ offset length)]
-       (when-not (== (count token) l)
-         (throw (ex-info (str "Invalid unicode character: \\" token)
-                         {:type :illegal-argument})))
-       (loop [i offset uc 0]
-         (if (== i l)
-           (js/String.fromCharCode uc)
-           (let [d (char-code (nth token i) base)]
-             (if (== d -1)
-               (throw (ex-info (str "Invalid digit: " (nth token i))
-                               {:type :illegal-argument}))
-               (recur (inc i) (+ d (* uc base)))))))))
+   (let [l (+ offset length)]
+     (when-not (== (count token) l)
+       (throw (ex-info (str "Invalid unicode character: \\" token)
+                       {:type :illegal-argument})))
+     (loop [i offset uc 0]
+       (if (== i l)
+         (js/String.fromCharCode uc)
+         (let [d (char-code (nth token i) base)]
+           (if (== d -1)
+             (throw (ex-info (str "Invalid digit: " (nth token i))
+                             {:type :illegal-argument}))
+             (recur (inc i) (+ d (* uc base)))))))))
 
   ([^not-native rdr initch base length exact?]
-     (loop [i 1 uc (char-code initch base)]
-       (if (== uc -1)
-         (throw (ex-info (str "Invalid digit: " initch)
-                         {:type :illegal-argument}))
-         (if-not (== i length)
-           (let [ch (peek-char rdr)]
-             (if (or (whitespace? ch)
-                     (macros ch)
-                     (nil? ch))
-               (if exact?
-                 (throw (ex-info (str "Invalid character length: " i ", should be: " length)
+   (loop [i 1 uc (char-code initch base)]
+     (if (== uc -1)
+       (throw (ex-info (str "Invalid digit: " initch)
+                       {:type :illegal-argument}))
+       (if-not (== i length)
+         (let [ch (peek-char rdr)]
+           (if (or (whitespace? ch)
+                   (macros ch)
+                   (nil? ch))
+             (if exact?
+               (throw (ex-info (str "Invalid character length: " i ", should be: " length)
+                               {:type :illegal-argument}))
+               (js/String.fromCharCode uc))
+             (let [d (char-code ch base)]
+               (read-char rdr)
+               (if (== d -1)
+                 (throw (ex-info (str "Invalid digit: " ch)
                                  {:type :illegal-argument}))
-                 (js/String.fromCharCode uc))
-               (let [d (char-code ch base)]
-                 (read-char rdr)
-                 (if (== d -1)
-                   (throw (ex-info (str "Invalid digit: " ch)
-                                   {:type :illegal-argument}))
-                   (recur (inc i) (+ d (* uc base)))))))
-           (js/String.fromCharCode uc))))))
+                 (recur (inc i) (+ d (* uc base)))))))
+         (js/String.fromCharCode uc))))))
 
 (def ^:private ^:const upper-limit (.charCodeAt \uD7ff 0))
 (def ^:private ^:const lower-limit (.charCodeAt \uE000 0))
@@ -222,6 +222,27 @@
   [delim rdr opts pending-forms]
   (binding [*read-delim* true]
     (read-delimited-internal delim rdr opts pending-forms)))
+
+(def ^:dynamic *wrap-value-and-add-metadata?* false)
+
+(defn- wrap-value-and-add-metadata [f rdr & args]
+  (if *wrap-value-and-add-metadata?*
+    (let [[start-line start-column] (starting-line-col-info rdr)
+          val (apply f rdr args)
+          [end-line end-column] (ending-line-col-info rdr)]
+      (if (meta val)
+        val
+        (with-meta
+          [val]
+          (merge
+            (when-let [file (get-file-name rdr)]
+              {:file file})
+            {:line start-line
+             :column start-column
+             :end-line end-line
+             :end-column end-column
+             :wrapped? true}))))
+    (apply f rdr args)))
 
 (defn- read-list
   "Read in a list, including its location if the reader is an indexing reader"
@@ -399,7 +420,8 @@
   [rdr _ opts pending-forms]
   (log-source rdr
     (let [[line column] (starting-line-col-info rdr)
-          m (desugar-meta (read* rdr true nil opts pending-forms))]
+          m (desugar-meta (binding [*wrap-value-and-add-metadata?* false]
+                            (read* rdr true nil opts pending-forms)))]
       (when-not (map? m)
         (reader-error rdr "Metadata must be Symbol, Keyword, String or Map"))
       (let [o (read* rdr true nil opts pending-forms)]
@@ -590,7 +612,7 @@
 (defn- read-arg
   [^not-native rdr pct opts pending-forms]
   (if (nil? arg-env)
-    (read-symbol rdr pct)
+    (wrap-value-and-add-metadata read-symbol rdr pct)
     (let [ch (peek-char rdr)]
       (cond
        (or (whitespace? ch)
@@ -746,8 +768,10 @@
 
 (defn- macros [ch]
   (case ch
-    \" read-string*
-    \: read-keyword
+    \" (fn [reader & args]
+         (apply wrap-value-and-add-metadata read-string* reader args))
+    \: (fn [reader & args]
+         (apply wrap-value-and-add-metadata read-keyword reader args))
     \; read-comment
     \' (wrapping-reader 'quote)
     \@ (wrapping-reader 'clojure.core/deref)
@@ -760,7 +784,8 @@
     \] read-unmatched-delimiter
     \{ read-map
     \} read-unmatched-delimiter
-    \\ read-char*
+    \\ (fn [reader & args]
+         (apply wrap-value-and-add-metadata read-char* reader args))
     \% read-arg
     \# read-dispatch
     nil))
@@ -808,7 +833,7 @@
   is non-nil, it will be called with two arguments, the tag and the value.
   If *default-data-reader-fn* is nil (the default value), an exception
   will be thrown for the unknown tag."
-  nil)
+  (fn [tag value]))
 
 (def ^:dynamic *suppress-read* false)
 
@@ -830,41 +855,41 @@
             (whitespace? ch) (recur)
             (nil? ch) (if eof-error? (reader-error reader "EOF") sentinel)
             (identical? ch return-on) READ_FINISHED
-            (number-literal? reader ch) (read-number reader ch)
+            (number-literal? reader ch) (wrap-value-and-add-metadata read-number reader ch)
             :else (let [f (macros ch)]
                     (if-not (nil? f)
                       (let [res (f reader ch opts pending-forms)]
                         (if (identical? res reader)
                           (recur)
                           res))
-                      (read-symbol reader ch)))))))))
+                      (wrap-value-and-add-metadata read-symbol reader ch)))))))))
 
 (defn- read*
   ([reader eof-error? sentinel opts pending-forms]
-     (read* reader eof-error? sentinel nil opts pending-forms))
+   (read* reader eof-error? sentinel nil opts pending-forms))
   ([^not-native reader eof-error? sentinel return-on opts pending-forms]
-     (try
-       (read*-internal reader eof-error? sentinel return-on opts pending-forms)
-       (catch js/Error e
-         (if (ex-info? e)
-           (let [d (ex-data e)]
-             (if (= :reader-exception (:type d))
-               (throw e)
-               (throw (ex-info (.-message e)
-                               (merge {:type :reader-exception}
-                                      d
-                                      (if (indexing-reader? reader)
-                                        {:line   (get-line-number reader)
-                                         :column (get-column-number reader)
-                                         :file   (get-file-name reader)}))
-                               e))))
-           (throw (ex-info (.-message e)
-                           (merge {:type :reader-exception}
-                                  (if (indexing-reader? reader)
-                                    {:line   (get-line-number reader)
-                                     :column (get-column-number reader)
-                                     :file   (get-file-name reader)}))
-                           e)))))))
+   (try
+     (read*-internal reader eof-error? sentinel return-on opts pending-forms)
+     (catch js/Error e
+       (if (ex-info? e)
+         (let [d (ex-data e)]
+           (if (= :reader-exception (:type d))
+             (throw e)
+             (throw (ex-info (.-message e)
+                             (merge {:type :reader-exception}
+                                    d
+                                    (if (indexing-reader? reader)
+                                      {:line   (get-line-number reader)
+                                       :column (get-column-number reader)
+                                       :file   (get-file-name reader)}))
+                             e))))
+         (throw (ex-info (.-message e)
+                         (merge {:type :reader-exception}
+                                (if (indexing-reader? reader)
+                                  {:line   (get-line-number reader)
+                                   :column (get-column-number reader)
+                                   :file   (get-file-name reader)}))
+                         e)))))))
 
 (defn read
   "Reads the first object from an IPushbackReader or a java.io.PushbackReader.
@@ -896,7 +921,7 @@
    Note that the function signature of clojure.tools.reader/read-string and
    clojure.tools.reader.edn/read-string is not the same for eof-handling"
   ([s]
-     (read-string {} s))
+   (read-string {} s))
   ([opts s]
-     (when (and s (not (identical? s "")))
-       (read opts (string-push-back-reader s)))))
+   (when (and s (not (identical? s "")))
+     (read opts (string-push-back-reader s)))))
