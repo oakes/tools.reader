@@ -8,16 +8,18 @@
 
 (ns ^{:doc "An EDN reader in clojure"
       :author "Bronsa"}
-  clojure.tools.reader.edn
+  oakcljs.tools.reader.edn
   (:refer-clojure :exclude [read read-string char default-data-readers])
-  (:require [clojure.tools.reader.reader-types :refer
+  (:require [oakcljs.tools.reader.reader-types :refer
              [read-char reader-error unread peek-char indexing-reader?
               get-line-number get-column-number get-file-name string-push-back-reader]]
-            [clojure.tools.reader.impl.utils :refer
+            [oakcljs.tools.reader.impl.utils :refer
              [char ex-info? whitespace? numeric? desugar-meta]]
-            [clojure.tools.reader.impl.commons :refer :all]
-            [clojure.tools.reader :refer [default-data-readers]])
-  (:import (clojure.lang PersistentHashSet IMeta RT PersistentVector)))
+            [oakcljs.tools.reader.impl.commons :refer
+             [number-literal? read-past match-number parse-symbol read-comment throwing-reader]]
+            [oakcljs.tools.reader :refer [default-data-readers char-code]]
+            [goog.string :as gstring])
+  (:import goog.string.StringBuffer))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; helpers
@@ -25,18 +27,18 @@
 
 (declare read macros dispatch-macros)
 
-(defn- macro-terminating? [ch]
+(defn- ^boolean macro-terminating? [ch]
   (and (not (identical? \# ch))
        (not (identical? \' ch))
        (not (identical? \: ch))
        (macros ch)))
 
-(defn- not-constituent? [ch]
+(defn- ^boolean not-constituent? [ch]
   (or (identical? \@ ch)
       (identical? \` ch)
       (identical? \~ ch)))
 
-(defn- ^String read-token
+(defn- read-token
   ([rdr initch]
      (read-token rdr initch true))
   ([rdr initch validate-leading?]
@@ -49,7 +51,7 @@
       (reader-error rdr "Invalid leading character: " initch)
 
       :else
-      (loop [sb (StringBuilder.)
+      (loop [sb (StringBuffer.)
              ch (do (unread rdr initch) initch)]
         (if (or (whitespace? ch)
                 (macro-terminating? ch)
@@ -80,37 +82,41 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- read-unicode-char
-  ([^String token offset length base]
+  ([token offset length base]
      (let [l (+ offset length)]
        (when-not (== (count token) l)
-         (throw (IllegalArgumentException. (str "Invalid unicode character: \\" token))))
+         (throw (ex-info (str "Invalid unicode character: \\" token)
+                         {:type :illegal-argument})))
        (loop [i offset uc 0]
          (if (== i l)
-           (char uc)
-           (let [d (Character/digit (int (nth token i)) (int base))]
+           (js/String.fromCharCode uc)
+           (let [d (char-code (nth token i) base)]
              (if (== d -1)
-               (throw (IllegalArgumentException. (str "Invalid digit: " (nth token i))))
-               (recur (inc i) (long (+ d (* uc base))))))))))
+               (throw (ex-info (str "Invalid digit: " (nth token i))
+                               {:type :illegal-argument}))
+               (recur (inc i) (+ d (* uc base)))))))))
 
   ([rdr initch base length exact?]
-     (loop [i 1 uc (Character/digit (int initch) (int base))]
+     (loop [i 1 uc (char-code initch base)]
        (if (== uc -1)
-         (throw (IllegalArgumentException. (str "Invalid digit: " initch)))
+         (throw (ex-info (str "Invalid digit: " initch)
+                         {:type :illegal-argument}))
          (if-not (== i length)
            (let [ch (peek-char rdr)]
              (if (or (whitespace? ch)
                      (macros ch)
                      (nil? ch))
                (if exact?
-                 (throw (IllegalArgumentException.
-                         (str "Invalid character length: " i ", should be: " length)))
-                 (char uc))
-               (let [d (Character/digit (int ch) (int base))]
+                 (throw (ex-info (str "Invalid character length: " i ", should be: " length)
+                                 {:type :illegal-argument}))
+                 (js/String.fromCharCode uc))
+               (let [d (char-code ch base)]
                  (read-char rdr)
                  (if (== d -1)
-                   (throw (IllegalArgumentException. (str "Invalid digit: " ch)))
-                   (recur (inc i) (long (+ d (* uc base))))))))
-           (char uc))))))
+                   (throw (ex-info (str "Invalid digit: " ch)
+                                   {:type :illegal-argument}))
+                   (recur (inc i) (+ d (* uc base)))))))
+           (js/String.fromCharCode uc))))))
 
 (def ^:private ^:const upper-limit (int \uD7ff))
 (def ^:private ^:const lower-limit (int \uE000))
@@ -127,24 +133,24 @@
             token-len (count token)]
         (cond
 
-         (== 1 token-len)  (Character/valueOf (nth token 0))
+         (== 1 token-len)  (nth token 0)
 
-         (= token "newline") \newline
-         (= token "space") \space
-         (= token "tab") \tab
-         (= token "backspace") \backspace
-         (= token "formfeed") \formfeed
-         (= token "return") \return
+         (identical? token "newline") \newline
+         (identical? token "space") \space
+         (identical? token "tab") \tab
+         (identical? token "backspace") \backspace
+         (identical? token "formfeed") \formfeed
+         (identical? token "return") \return
 
-         (.startsWith token "u")
+         (gstring/startsWith token "u")
          (let [c (read-unicode-char token 1 4 16)
-               ic (int c)]
+               ic (.charCodeAt c)]
            (if (and (> ic upper-limit)
                     (< ic lower-limit))
-             (reader-error rdr "Invalid character constant: \\u" (Integer/toString ic 16))
+             (reader-error rdr "Invalid character constant: \\u" c)
              c))
 
-         (.startsWith token "o")
+         (gstring/startsWith token "o")
          (let [len (dec token-len)]
            (if (> len 3)
              (reader-error rdr "Invalid octal escape sequence length: " len)
@@ -156,7 +162,7 @@
          :else (reader-error rdr "Unsupported character: \\" token)))
       (reader-error rdr "EOF while reading character"))))
 
-(defn- ^PersistentVector read-delimited
+(defn- read-delimited
   [delim rdr opts]
   (let [first-line (when (indexing-reader? rdr)
                      (get-line-number rdr))
@@ -167,7 +173,7 @@
           (reader-error rdr "EOF while reading"
                         (if first-line
                           (str ", starting at line" first-line))))
-        (if (identical? delim (char ch))
+        (if (= delim (char ch))
           (persistent! a)
           (if-let [macrofn (macros ch)]
             (let [mret (macrofn rdr ch opts)]
@@ -180,7 +186,7 @@
   (let [the-list (read-delimited \) rdr opts)]
     (if (empty? the-list)
       '()
-      (clojure.lang.PersistentList/create the-list))))
+      (apply list the-list))))
 
 (defn- read-vector
   [rdr _ opts]
@@ -191,11 +197,11 @@
   (let [l (to-array (read-delimited \} rdr opts))]
     (when (== 1 (bit-and (alength l) 1))
       (reader-error rdr "Map literal must contain an even number of forms"))
-    (RT/map l)))
+    (apply hash-map l)))
 
 (defn- read-number
   [reader initch opts]
-  (loop [sb (doto (StringBuilder.) (.append initch))
+  (loop [sb (doto (StringBuffer.) (.append initch))
          ch (read-char reader)]
     (if (or (whitespace? ch) (macros ch) (nil? ch))
       (let [s (str sb)]
@@ -215,7 +221,7 @@
       \b "\b"
       \f "\f"
       \u (let [ch (read-char rdr)]
-           (if (== -1 (Character/digit (int ch) 16))
+           (if (== -1 (js/parseInt (int ch) 16))
              (reader-error rdr "Invalid unicode escape: \\u" ch)
              (read-unicode-char rdr ch 16 4 true)))
       (if (numeric? ch)
@@ -227,7 +233,7 @@
 
 (defn- read-string*
   [reader _ opts]
-  (loop [sb (StringBuilder.)
+  (loop [sb (StringBuffer.)
          ch (read-char reader)]
     (case ch
       nil (reader-error reader "EOF while reading string")
@@ -246,9 +252,9 @@
       "true" true
       "false" false
       "/" '/
-      "NaN" Double/NaN
-      "-Infinity" Double/NEGATIVE_INFINITY
-      ("Infinity" "+Infinity") Double/POSITIVE_INFINITY
+      "NaN" js/Number.NaN
+      "-Infinity" js/Number.NEGATIVE_INFINITY
+      ("Infinity" "+Infinity") js/Number.POSITIVE_INFINITY
 
       (or (when-let [p (parse-symbol token)]
             (symbol (p 0) (p 1)))
@@ -261,8 +267,8 @@
       (let [token (read-token reader ch)
             s (parse-symbol token)]
         (if (and s (== -1 (.indexOf token "::")))
-          (let [^String ns (s 0)
-                ^String name (s 1)]
+          (let [ns (s 0)
+                name (s 1)]
             (if (identical? \: (nth token 0))
               (reader-error reader "Invalid token: :" token) ;; no ::keyword in edn
               (keyword ns name)))
@@ -280,13 +286,13 @@
     (when-not (map? m)
       (reader-error rdr "Metadata must be Symbol, Keyword, String or Map"))
     (let [o (read rdr true nil opts)]
-      (if (instance? IMeta o)
+      (if (implements? IMeta o)
         (with-meta o (merge (meta o) m))
         (reader-error rdr "Metadata can only be applied to IMetas")))))
 
 (defn- read-set
   [rdr _ opts]
-  (PersistentHashSet/createWithCheck (read-delimited \} rdr opts)))
+  (set (read-delimited \} rdr opts)))
 
 (defn- read-discard
   [rdr _ opts]
@@ -342,7 +348,7 @@
    Reads data in the edn format (subset of Clojure data):
    http://edn-format.org
 
-   clojure.tools.reader.edn/read doesn't depend on dynamic Vars, all configuration
+   oakclojure.tools.reader.edn/read doesn't depend on dynamic Vars, all configuration
    is done by passing an opt map.
 
    opts is a map that can include the following keys:
@@ -351,7 +357,6 @@
               When not supplied, only the default-data-readers will be used.
    :default - A function of two args, that will, if present and no reader is found for a tag,
               be called with the tag and the value."
-  ([] (read *in*))
   ([reader] (read {} reader))
   ([{:keys [eof] :as opts} reader]
      (let [eof-error? (not (contains? opts :eof))]
@@ -371,12 +376,12 @@
                           (recur)
                           res))
                       (read-symbol reader ch))))))
-       (catch Exception e
+       (catch js/Error e
          (if (ex-info? e)
            (let [d (ex-data e)]
              (if (= :reader-exception (:type d))
                (throw e)
-               (throw (ex-info (.getMessage e)
+               (throw (ex-info (.-message e)
                                (merge {:type :reader-exception}
                                       d
                                       (if (indexing-reader? reader)
@@ -384,7 +389,7 @@
                                          :column (get-column-number reader)
                                          :file   (get-file-name reader)}))
                                e))))
-           (throw (ex-info (.getMessage e)
+           (throw (ex-info (.-message e)
                            (merge {:type :reader-exception}
                                   (if (indexing-reader? reader)
                                     {:line   (get-line-number reader)
@@ -399,8 +404,8 @@
    Reads data in the edn format (subset of Clojure data):
    http://edn-format.org
 
-   opts is a map as per clojure.tools.reader.edn/read"
+   opts is a map as per oakclojure.tools.reader.edn/read"
   ([s] (read-string {:eof nil} s))
   ([opts s]
-     (when (and s (not (identical? s "")))
+     (when (and s (not= s ""))
        (read opts (string-push-back-reader s)))))

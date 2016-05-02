@@ -1,9 +1,9 @@
-(ns clojure.tools.reader-test
+(ns oakclojure.tools.reader-test
   (:refer-clojure :exclude [read read-string *default-data-reader-fn* *data-readers*])
-  (:use [clojure.tools.reader :only [read read-string *default-data-reader-fn* *data-readers*]]
-        [clojure.tools.reader.reader-types :only [string-push-back-reader]]
+  (:use [oakclojure.tools.reader :only [read read-string *default-data-reader-fn* *data-readers*]]
+        [oakclojure.tools.reader.reader-types :only [string-push-back-reader]]
         [clojure.test :only [deftest is are testing]]
-        [clojure.tools.reader.impl.utils :exclude [char]])
+        [oakclojure.tools.reader.impl.utils :exclude [char]])
   (:import clojure.lang.BigInt))
 
 (load "common_tests")
@@ -78,15 +78,15 @@
 (defrecord bar [baz buz])
 
 (deftest read-record
-  (is (= (foo.) (read-string "#clojure.tools.reader_test.foo[]")))
-  (is (= (foo.) (read-string "#clojure.tools.reader_test.foo []"))) ;; not valid in clojure
-  (is (= (foo.) (read-string "#clojure.tools.reader_test.foo{}")))
-  (is (= (assoc (foo.) :foo 'bar) (read-string "#clojure.tools.reader_test.foo{:foo bar}")))
+  (is (= (foo.) (read-string "#oakclojure.tools.reader_test.foo[]")))
+  (is (= (foo.) (read-string "#oakclojure.tools.reader_test.foo []"))) ;; not valid in clojure
+  (is (= (foo.) (read-string "#oakclojure.tools.reader_test.foo{}")))
+  (is (= (assoc (foo.) :foo 'bar) (read-string "#oakclojure.tools.reader_test.foo{:foo bar}")))
 
-  (is (= (map->bar {}) (read-string "#clojure.tools.reader_test.bar{}")))
-  (is (= (bar. 1 nil) (read-string "#clojure.tools.reader_test.bar{:baz 1}")))
-  (is (= (bar. 1 nil) (read-string "#clojure.tools.reader_test.bar[1 nil]")))
-  (is (= (bar. 1 2) (read-string "#clojure.tools.reader_test.bar[1 2]"))))
+  (is (= (map->bar {}) (read-string "#oakclojure.tools.reader_test.bar{}")))
+  (is (= (bar. 1 nil) (read-string "#oakclojure.tools.reader_test.bar{:baz 1}")))
+  (is (= (bar. 1 nil) (read-string "#oakclojure.tools.reader_test.bar[1 nil]")))
+  (is (= (bar. 1 2) (read-string "#oakclojure.tools.reader_test.bar[1 2]"))))
 
 (deftest read-ctor
   (is (= "foo" (read-string "#java.lang.String[\"foo\"]"))))

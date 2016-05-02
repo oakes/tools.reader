@@ -1,6 +1,6 @@
-(ns cljs.tools.reader-edn-test
+(ns oakcljs.tools.reader-edn-test
   (:require [cljs.test :as t :refer-macros [deftest is run-tests]]
-            [cljs.tools.reader.edn :refer [read-string]]))
+            [oakcljs.tools.reader.edn :refer [read-string]]))
 
 ;;==============================================================================
 ;; common_tests.clj

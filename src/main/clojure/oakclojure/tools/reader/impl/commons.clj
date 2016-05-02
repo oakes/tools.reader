@@ -6,10 +6,10 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.tools.reader.impl.commons
+(ns oakclojure.tools.reader.impl.commons
   (:refer-clojure :exclude [char])
-  (:require [clojure.tools.reader.reader-types :refer [peek-char read-char reader-error]]
-            [clojure.tools.reader.impl.utils :refer [numeric? newline? char]])
+  (:require [oakclojure.tools.reader.reader-types :refer [peek-char read-char reader-error]]
+            [oakclojure.tools.reader.impl.utils :refer [numeric? newline? char]])
   (:import (clojure.lang BigInt Numbers)
            (java.util.regex Pattern Matcher)
            java.lang.reflect.Constructor))

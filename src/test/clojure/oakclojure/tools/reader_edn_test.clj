@@ -1,6 +1,6 @@
-(ns clojure.tools.reader-edn-test
+(ns oakclojure.tools.reader-edn-test
   (:refer-clojure :exclude [read-string])
-  (:use [clojure.tools.reader.edn :only [read-string]]
+  (:use [oakclojure.tools.reader.edn :only [read-string]]
         [clojure.test :only [deftest is]])
   (:import clojure.lang.BigInt))
 

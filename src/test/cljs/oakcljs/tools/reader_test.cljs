@@ -1,11 +1,11 @@
-(ns cljs.tools.reader-test
+(ns oakcljs.tools.reader-test
   (:refer-clojure :exclude [read-string])
   (:require [cljs.test :as t :refer-macros [are deftest is run-tests testing]]
-            [cljs.tools.reader :as reader :refer
+            [oakcljs.tools.reader :as reader :refer
              [*data-readers* *default-data-reader-fn* read-string *alias-map* resolve-symbol]]
-            [cljs.tools.reader.impl.utils
+            [oakcljs.tools.reader.impl.utils
              :refer [reader-conditional reader-conditional?]]
-            [cljs.tools.reader.reader-types :as rt]
+            [oakcljs.tools.reader.reader-types :as rt]
             [goog.string]))
 
 ;;==============================================================================
@@ -190,23 +190,23 @@
 
 #_(deftest read-record
     (is (= (foo.)
-           (read-string "#cljs.tools.reader_test.foo[]")))
+           (read-string "#oakcljs.tools.reader_test.foo[]")))
     (is (= (foo.)
-           (read-string "#cljs.tools.reader_test.foo []"))) ;; not valid in clojure
+           (read-string "#oakcljs.tools.reader_test.foo []"))) ;; not valid in clojure
     (is (= (foo.)
-           (read-string "#cljs.tools.reader_test.foo{}")))
+           (read-string "#oakcljs.tools.reader_test.foo{}")))
     (is (= (assoc (foo.) :foo 'bar)
-           (read-string "#cljs.tools.reader_test.foo{:foo bar}")))
+           (read-string "#oakcljs.tools.reader_test.foo{:foo bar}")))
 
     (is (= (map->bar {:baz 1})
-           (read-string "#cljs.tools.reader_test.bar{:baz 1}")))
+           (read-string "#oakcljs.tools.reader_test.bar{:baz 1}")))
     (is (= (bar. 1 nil)
-           (read-string "#cljs.tools.reader_test.bar[1 nil]")))
+           (read-string "#oakcljs.tools.reader_test.bar[1 nil]")))
     (is (= (bar. 1 2)
-           (read-string "#cljs.tools.reader_test.bar[1 2]"))))
+           (read-string "#oakcljs.tools.reader_test.bar[1 2]"))))
 
 (deftest source-logging-meta-test
-  (-> (loop [r (cljs.tools.reader.reader-types/source-logging-push-back-reader "(def test 8)\n(def test2 9)\n")
+  (-> (loop [r (oakcljs.tools.reader.reader-types/source-logging-push-back-reader "(def test 8)\n(def test2 9)\n")
              forms []]
         (if-let [form (reader/read r false nil)]
           (recur r (conj forms [(meta form) form]))
