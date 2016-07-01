@@ -33,12 +33,8 @@
   (is (== -511 (js/parseInt "-777" 8) (read-string "-0777")))
   (is (== 1340 (js/parseInt "02474" 8) (read-string "02474")))
   (is (== -1340 (js/parseInt "-02474" 8) (read-string "-02474")))
-
-  ;;parse oct as decimal
-  (is (== 888 (js/parseInt "0888" 10) (read-string "0888")))
-  (is (== -888 (js/parseInt "-0888" 10) (read-string "-0888")))
-  (is (== 4984 (js/parseInt "04984" 10) (read-string "04984")))
-  (is (== -4984 (js/parseInt "-04984" 10) (read-string "-04984"))))
+  (is (thrown-with-msg? js/Error #"Invalid number format \[09\]"
+                        (read-string "09"))))
 
 (deftest read-floating
   (is (== 42.23 (read-string "42.23")))
@@ -108,12 +104,21 @@
 (deftest read-map
   (is (= '{} (read-string "{}")))
   (is (= '{foo bar} (read-string "{foo bar}")))
-  (is (= '{foo {bar baz}} (read-string "{foo {bar baz}}"))))
+  (is (= '{foo {bar baz}} (read-string "{foo {bar baz}}")))
+  (is (thrown-with-msg? js/Error
+                        #"Map literal must contain an even number of forms"
+                        (read-string "{foo bar bar}")))
+  (is (thrown-with-msg? js/Error #"Map literal contains duplicate key: foo"
+                      (read-string "{foo bar foo bar}"))))
 
 (deftest read-set
   (is (= '#{} (read-string "#{}")))
   (is (= '#{foo bar} (read-string "#{foo bar}")))
-  (is (= '#{foo #{bar} baz} (read-string "#{foo #{bar} baz}"))))
+  (is (= '#{foo #{bar} baz} (read-string "#{foo #{bar} baz}")))
+  (is (thrown-with-msg? js/Error #"Set literal contains duplicate key: foo"
+                        (read-string "#{foo foo}")))
+  (is (thrown-with-msg? js/Error #"Set literal contains duplicate keys: foo, bar"
+                        (read-string "#{foo foo bar bar}"))))
 
 (deftest read-metadata
   (is (= {:foo true} (meta (read-string "^:foo 'bar"))))
@@ -299,3 +304,11 @@
                "#?(:cljs #js {:y 2, :x 1})"
                "#?(:clj #cljs.test_clojure.reader.TestRecord [42 85])"]]
       (is (= s (pr-str (read-string {:read-cond :preserve} s)))))))
+
+(deftest read-namespaced-map
+  (binding [*ns* (create-ns 'cljs.tools.reader-test)]
+    (is (= {:foo/bar 1 :baz 2} (read-string "#:foo{:bar 1 :_/baz 2}")))
+    (is (= '{foo/bar 1 :baz 2} (read-string "#:foo{bar 1 :_/baz 2}")))
+    (is (= {::foo 1} (read-string "#::{:foo 1}")))
+    (is (= {::foo 1 :bar 2} (read-string "#::{:foo 1 :_/bar 2}")))
+    (is (= {:a/foo 1 :bar 2} (read-string "#:a{:foo 1 :_/bar 2}")))))

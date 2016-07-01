@@ -22,7 +22,7 @@
   <scm>
     <connection>scm:git:git://github.com/oakes/tools.reader.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/oakes/tools.reader.git</developerConnection>
-    <tag>d034ccddb6db68435f06e73d20d2e34dcf92a875
+    <tag>4adaef0f174939fcee715fad5201be1e272ef84e
 </tag>
     <url>https://github.com/oakes/tools.reader</url>
   </scm>
@@ -99,12 +99,12 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.8.0</version>
+      <version>1.9.0-alpha8</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
-      <version>1.7.145</version>
+      <version>1.9.89</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>

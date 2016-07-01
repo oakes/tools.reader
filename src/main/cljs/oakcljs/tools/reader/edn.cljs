@@ -14,7 +14,7 @@
              [read-char reader-error unread peek-char indexing-reader?
               get-line-number get-column-number get-file-name string-push-back-reader]]
             [oakcljs.tools.reader.impl.utils :refer
-             [char ex-info? whitespace? numeric? desugar-meta]]
+             [char ex-info? whitespace? numeric? desugar-meta namespace-keys second']]
             [oakcljs.tools.reader.impl.commons :refer
              [number-literal? read-past match-number parse-symbol read-comment throwing-reader]]
             [oakcljs.tools.reader :refer [default-data-readers char-code]]
@@ -299,6 +299,21 @@
   (doto rdr
     (read true nil true)))
 
+(defn- read-namespaced-map
+  [rdr _ opts]
+  (let [token (read-token rdr (read-char rdr))]
+    (if-let [ns (some-> token parse-symbol second')]
+      (let [ch (read-past whitespace? rdr)]
+        (if (identical? ch \{)
+          (let [items (read-delimited \} rdr opts)]
+            (when (odd? (count items))
+              (reader-error rdr "Map literal must contain an even number of forms"))
+            (let [keys (take-nth 2 items)
+                  vals (take-nth 2 (rest items))]
+              (zipmap (namespace-keys (str ns) keys) vals)))
+          (reader-error rdr "Namespaced map must specify a map")))
+      (reader-error rdr "Invalid token used as namespace in namespaced map: " token))))
+
 (defn- macros [ch]
   (case ch
     \" read-string*
@@ -322,6 +337,7 @@
     \< (throwing-reader "Unreadable form")
     \! read-comment
     \_ read-discard
+    \: read-namespaced-map
     nil))
 
 (defn- read-tagged [rdr initch opts]

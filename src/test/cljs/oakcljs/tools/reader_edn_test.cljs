@@ -26,13 +26,7 @@
   (is (== 511 (js/parseInt "777" 8) (read-string "0777")))
   (is (== -511 (js/parseInt "-777" 8) (read-string "-0777")))
   (is (== 1340 (js/parseInt "02474" 8) (read-string "02474")))
-  (is (== -1340 (js/parseInt "-02474" 8) (read-string "-02474")))
-
-  ;;parse oct as decimal
-  (is (== 888 (js/parseInt "0888" 10) (read-string "0888")))
-  (is (== -888 (js/parseInt "-0888" 10) (read-string "-0888")))
-  (is (== 4984 (js/parseInt "04984" 10) (read-string "04984")))
-  (is (== -4984 (js/parseInt "-04984" 10) (read-string "-04984"))))
+  (is (== -1340 (js/parseInt "-02474" 8) (read-string "-02474"))))
 
 (deftest read-floating
   (is (== 42.23 (read-string "42.23")))
@@ -145,3 +139,7 @@
   (let [my-unknown (fn [tag val] {:unknown-tag tag :value val})]
     (is (= {:unknown-tag 'foo :value 'bar}
            (read-string {:default my-unknown} "#foo bar")))))
+
+(deftest read-namespaced-map
+  (is (= {:foo/bar 1 :baz 2} (read-string "#:foo{:bar 1 :_/baz 2}")))
+  (is (= '{foo/bar 1 :baz 2} (read-string "#:foo{bar 1 :_/baz 2}"))))

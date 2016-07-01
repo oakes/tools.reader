@@ -14,7 +14,7 @@
              [read-char reader-error unread peek-char indexing-reader?
               get-line-number get-column-number get-file-name string-push-back-reader]]
             [oakclojure.tools.reader.impl.utils :refer
-             [char ex-info? whitespace? numeric? desugar-meta]]
+             [char ex-info? whitespace? numeric? desugar-meta namespace-keys second']]
             [oakclojure.tools.reader.impl.commons :refer :all]
             [oakclojure.tools.reader :refer [default-data-readers]])
   (:import (clojure.lang PersistentHashSet IMeta RT PersistentVector)))
@@ -80,19 +80,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- read-unicode-char
-  ([^String token offset length base]
-     (let [l (+ offset length)]
-       (when-not (== (count token) l)
-         (throw (IllegalArgumentException. (str "Invalid unicode character: \\" token))))
-       (loop [i offset uc 0]
-         (if (== i l)
-           (char uc)
-           (let [d (Character/digit (int (nth token i)) (int base))]
-             (if (== d -1)
-               (throw (IllegalArgumentException. (str "Invalid digit: " (nth token i))))
-               (recur (inc i) (long (+ d (* uc base))))))))))
+  ([^String token ^long offset ^long length ^long base]
+   (let [l (+ offset length)]
+     (when-not (== (count token) l)
+       (throw (IllegalArgumentException. (str "Invalid unicode character: \\" token))))
+     (loop [i offset uc 0]
+       (if (== i l)
+         (char uc)
+         (let [d (Character/digit (int (nth token i)) (int base))]
+           (if (== d -1)
+             (throw (IllegalArgumentException. (str "Invalid digit: " (nth token i))))
+             (recur (inc i) (long (+ d (* uc base))))))))))
 
   ([rdr initch base length exact?]
+   (let [length (long length)
+         base (long base)]
      (loop [i 1 uc (Character/digit (int initch) (int base))]
        (if (== uc -1)
          (throw (IllegalArgumentException. (str "Invalid digit: " initch)))
@@ -110,7 +112,7 @@
                  (if (== d -1)
                    (throw (IllegalArgumentException. (str "Invalid digit: " ch)))
                    (recur (inc i) (long (+ d (* uc base))))))))
-           (char uc))))))
+           (char uc)))))))
 
 (def ^:private ^:const upper-limit (int \uD7ff))
 (def ^:private ^:const lower-limit (int \uE000))
@@ -293,6 +295,21 @@
   (doto rdr
     (read true nil true)))
 
+(defn- read-namespaced-map
+  [rdr _ opts]
+  (let [token (read-token rdr (read-char rdr))]
+    (if-let [ns (some-> token parse-symbol second')]
+      (let [ch (read-past whitespace? rdr)]
+        (if (identical? ch \{)
+          (let [items (read-delimited \} rdr opts)]
+            (when (odd? (count items))
+              (reader-error rdr "Map literal must contain an even number of forms"))
+            (let [keys (take-nth 2 items)
+                  vals (take-nth 2 (rest items))]
+              (zipmap (namespace-keys (str ns) keys) vals)))
+          (reader-error rdr "Namespaced map must specify a map")))
+      (reader-error rdr "Invalid token used as namespace in namespaced map: " token))))
+
 (defn- macros [ch]
   (case ch
     \" read-string*
@@ -316,6 +333,7 @@
     \< (throwing-reader "Unreadable form")
     \! read-comment
     \_ read-discard
+    \: read-namespaced-map
     nil))
 
 (defn- read-tagged [rdr initch opts]
