@@ -1,7 +1,7 @@
 clojure.tools.reader
 ========================================
 
-A complete Clojure reader and an EDN-only reader, works with Clojure versions >= 1.4.0 and Clojurescript  >=3308 and since version 0.10.0-alpha1
+A complete Clojure reader and an EDN-only reader, works with Clojure versions >= 1.4.0 and Clojurescript  >=0.3308 and since version 0.10.0-alpha1
 
 * [Rationale](#rationale)
 * [Releases and Dependency Information](#releases-and-dependency-information)
@@ -15,7 +15,7 @@ A complete Clojure reader and an EDN-only reader, works with Clojure versions >=
 Rationale
 ========================================
 
-clojure.tools.reader offers all functionality of the reader from clojure-1.7.0, and more.
+clojure.tools.reader offers all functionality of the reader from clojure-1.9.0, and more.
 
 For a list of additional features of the reader, read [Differences from LispReader.java](#differences-from-lispreaderjava)
 
@@ -34,7 +34,7 @@ YourKit is kindly supporting open source projects with its full-featured Java Pr
 Releases and Dependency Information
 ========================================
 
-Latest stable release: 1.0.0-beta3
+Latest stable release: 1.0.0
 
 * [All Released Versions](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22org.clojure%22%20AND%20a%3A%22tools.reader%22)
 
@@ -43,7 +43,7 @@ Latest stable release: 1.0.0-beta3
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.clojure/tools.reader "1.0.0-beta3"]
+[org.clojure/tools.reader "1.0.0"]
 ```
 [Maven](http://maven.apache.org/) dependency information:
 
@@ -51,7 +51,7 @@ Latest stable release: 1.0.0-beta3
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>tools.reader</artifactId>
-  <version>1.0.0-beta3</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 
@@ -176,6 +176,6 @@ There are small differences from clojure.lang.LispReader:
 
 ## License
 
-Copyright © 2013-2015 Nicola Mometto, Rich Hickey & contributors.
+Copyright © 2013-2017 Nicola Mometto, Rich Hickey & contributors.
 
 Licensed under the EPL. (See the file epl.html.)

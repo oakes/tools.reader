@@ -3,7 +3,7 @@
   <parent>
     <artifactId>pom.contrib</artifactId>
     <groupId>org.clojure</groupId>
-    <version>0.1.2</version>
+    <version>0.2.0</version>
     <relativePath/>
   </parent>
   <groupId>org.clojars.oakes</groupId>
@@ -22,7 +22,7 @@
   <scm>
     <connection>scm:git:git://github.com/oakes/tools.reader.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/oakes/tools.reader.git</developerConnection>
-    <tag>4adaef0f174939fcee715fad5201be1e272ef84e
+    <tag>4a1384d0edad552187de34068d88b9f719f3539e
 </tag>
     <url>https://github.com/oakes/tools.reader</url>
   </scm>
@@ -99,12 +99,12 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.9.0-alpha8</version>
+      <version>1.9.0-master-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojurescript</artifactId>
-      <version>1.9.89</version>
+      <version>1.9.494</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>

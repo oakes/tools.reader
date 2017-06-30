@@ -303,9 +303,9 @@
       (reader-error rdr (duplicate-keys-error
                          "Map literal contains duplicate key" ks)))
     (with-meta
-      (if (zero? map-count)
-        {}
-        (apply hash-map (to-array the-map)))
+      (if (<= map-count (* 2 (.-HASHMAP-THRESHOLD PersistentArrayMap)))
+        (.fromArray PersistentArrayMap (to-array the-map) true true)
+        (.fromArray PersistentHashMap (to-array the-map) true))
       (when start-line
         (merge
          (when-let [file (get-file-name rdr)]
@@ -415,11 +415,12 @@
                 name (-nth s 1)]
             (if (identical? \: (.charAt token 0))
               (if-not (nil? ns)
-                (let [ns (resolve-ns (symbol (subs ns 1)))]
-                  (if-not (nil? ns)
-                    (keyword (str ns) name)
-                    (reader-error reader "Invalid token: :" token)))
-                (keyword (str *ns*) (subs name 1)))
+                (if-let [ns (resolve-ns (symbol (subs ns 1)))]
+                  (keyword (str ns) name)
+                  (reader-error reader "Invalid token: :" token))
+                (if-let [ns *ns*]
+                  (keyword (str ns) (subs name 1))
+                  (reader-error reader "Invalid token: :" token)))
               (keyword ns name)))
           (reader-error reader "Invalid token: :" token)))
       (reader-error reader "Invalid token: :"))))
@@ -804,9 +805,11 @@
           (let [items (read-delimited \} rdr opts pending-forms)]
             (when (odd? (count items))
               (reader-error rdr "Map literal must contain an even number of forms"))
-            (let [keys (take-nth 2 items)
+            (let [keys (namespace-keys (str ns) (take-nth 2 items))
                   vals (take-nth 2 (rest items))]
-              (zipmap (namespace-keys (str ns) keys) vals)))
+              (when-not (= (count (set keys)) (count keys))
+                (reader-error rdr (duplicate-keys-error "Map literal contains duplicate key" keys)))
+              (zipmap keys vals)))
           (reader-error rdr "Namespaced map must specify a map")))
       (reader-error rdr "Invalid token used as namespace in namespaced map: " token))))
 
@@ -860,7 +863,7 @@
         (f (read* rdr true nil opts pending-forms))
         (if-let [f *default-data-reader-fn*]
           (f tag (read* rdr true nil opts pending-forms))
-          (reader-error rdr "No reader function for tag " (name tag)))))))
+          (reader-error rdr "No reader function for tag " tag))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
