@@ -632,7 +632,7 @@
 (defn- read-arg
   [^not-native rdr pct opts pending-forms]
   (if (nil? arg-env)
-    (wrap-value-and-add-metadata read-symbol rdr pct)
+    (read-symbol rdr pct)
     (let [ch (peek-char rdr)]
       (cond
        (or (whitespace? ch)
@@ -645,7 +645,8 @@
            (register-arg -1))
 
        :else
-       (let [n (read* rdr true nil opts pending-forms)]
+       (let [n (binding [*wrap-value-and-add-metadata?* false]
+                 (read* rdr true nil opts pending-forms))]
          (if-not (integer? n)
            (throw (ex-info "Arg literal must be %, %& or %integer"
                            {:type :illegal-state}))
