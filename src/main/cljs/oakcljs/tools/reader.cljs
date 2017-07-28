@@ -297,11 +297,6 @@
         ks (take-nth 2 the-map)
         key-set (set ks)
         [end-line end-column] (ending-line-col-info rdr)]
-    (when (odd? map-count)
-      (reader-error rdr "Map literal must contain an even number of forms"))
-    (when-not (= (count key-set) (count ks))
-      (reader-error rdr (duplicate-keys-error
-                         "Map literal contains duplicate key" ks)))
     (with-meta
       (if (<= map-count (* 2 (.-HASHMAP-THRESHOLD PersistentArrayMap)))
         (.fromArray PersistentArrayMap (to-array the-map) true true)
@@ -804,12 +799,8 @@
       (let [ch (read-past whitespace? rdr)]
         (if (identical? ch \{)
           (let [items (read-delimited \} rdr opts pending-forms)]
-            (when (odd? (count items))
-              (reader-error rdr "Map literal must contain an even number of forms"))
             (let [keys (namespace-keys (str ns) (take-nth 2 items))
                   vals (take-nth 2 (rest items))]
-              (when-not (= (count (set keys)) (count keys))
-                (reader-error rdr (duplicate-keys-error "Map literal contains duplicate key" keys)))
               (zipmap keys vals)))
           (reader-error rdr "Namespaced map must specify a map")))
       (reader-error rdr "Invalid token used as namespace in namespaced map: " token))))

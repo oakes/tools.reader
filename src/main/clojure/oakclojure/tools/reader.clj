@@ -265,8 +265,6 @@
         the-map (read-delimited \} rdr opts pending-forms)
         map-count (count the-map)
         [end-line end-column] (ending-line-col-info rdr)]
-    (when (odd? map-count)
-      (reader-error rdr "Map literal must contain an even number of forms"))
     (with-meta
       (if (zero? map-count)
         {}
@@ -781,8 +779,6 @@
       (let [ch (read-past whitespace? rdr)]
         (if (identical? ch \{)
           (let [items (read-delimited \} rdr opts pending-forms)]
-            (when (odd? (count items))
-              (reader-error rdr "Map literal must contain an even number of forms"))
             (let [keys (take-nth 2 items)
                   vals (take-nth 2 (rest items))]
               (RT/map (to-array (mapcat list (namespace-keys (str ns) keys) vals)))))
