@@ -1,7 +1,7 @@
 clojure.tools.reader
 ========================================
 
-A complete Clojure reader and an EDN-only reader, works with Clojure versions >= 1.4.0 and Clojurescript  >=0.3308 and since version 0.10.0-alpha1
+A complete Clojure reader and an EDN-only reader, works with Clojure versions >= 1.4.0 and Clojurescript  >=0.5308 and since version 0.10.0-alpha1
 
 * [Rationale](#rationale)
 * [Releases and Dependency Information](#releases-and-dependency-information)
@@ -34,7 +34,7 @@ YourKit is kindly supporting open source projects with its full-featured Java Pr
 Releases and Dependency Information
 ========================================
 
-Latest stable release: 1.0.0
+Latest stable release: 1.0.5
 
 * [All Released Versions](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22org.clojure%22%20AND%20a%3A%22tools.reader%22)
 
@@ -43,7 +43,7 @@ Latest stable release: 1.0.0
 [Leiningen](https://github.com/technomancy/leiningen) dependency information:
 
 ```clojure
-[org.clojure/tools.reader "1.0.0"]
+[org.clojure/tools.reader "1.0.5"]
 ```
 [Maven](http://maven.apache.org/) dependency information:
 
@@ -51,7 +51,7 @@ Latest stable release: 1.0.0
 <dependency>
   <groupId>org.clojure</groupId>
   <artifactId>tools.reader</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.5</version>
 </dependency>
 ```
 
@@ -168,7 +168,6 @@ Differences from LispReader.java
 There are small differences from clojure.lang.LispReader:
 
 * `read` throws an `ex-info` for almost every exception, whereas `clojure.lang.LispReader/read` throws a `ReaderException` wrapping the causing exception.
-* `read` is capable of reading `Infinity` `+Infinity` `-Infinity` and `NaN` as per [#CLJ-1074](http://dev.clojure.org/jira/browse/CLJ-1074)
 * `read` is capable of reading literal tags containing periods, fixing [#CLJ-1100](http://dev.clojure.org/jira/browse/CLJ-1100)
 * `clojure.tools.reader/read` checks if `clojure.tools.reader/*alias-map*` is bound, if that's the case, aliases will be resolved by querying it (must be a map), otherwhise (ns-aliases \*ns\*) will be used
 * `clojure.tools.reader/read` adds additional line/column info to symbols, vectors and maps when possible

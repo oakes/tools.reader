@@ -9,7 +9,8 @@
 (ns oakcljs.tools.reader.impl.commons
   (:refer-clojure :exclude [char])
   (:require
-   [oakcljs.tools.reader.reader-types :refer [peek-char read-char reader-error]]
+   [oakcljs.tools.reader.impl.errors :refer [reader-error]]
+   [oakcljs.tools.reader.reader-types :refer [peek-char read-char]]
    [oakcljs.tools.reader.impl.utils :refer [numeric? newline? char]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

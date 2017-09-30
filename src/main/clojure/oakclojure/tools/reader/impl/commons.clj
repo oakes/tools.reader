@@ -8,7 +8,8 @@
 
 (ns oakclojure.tools.reader.impl.commons
   (:refer-clojure :exclude [char])
-  (:require [oakclojure.tools.reader.reader-types :refer [peek-char read-char reader-error]]
+  (:require [oakclojure.tools.reader.reader-types :refer [peek-char read-char]]
+            [oakclojure.tools.reader.impl.errors :refer [reader-error]]
             [oakclojure.tools.reader.impl.utils :refer [numeric? newline? char]])
   (:import (clojure.lang BigInt Numbers)
            (java.util.regex Pattern Matcher)
