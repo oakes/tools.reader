@@ -372,7 +372,7 @@
                 (let [ns (resolve-alias (symbol (subs ns 1)))]
                   (if ns
                     (keyword (str ns) name)
-                    (err/throw-invalid reader :keyword (str \: token))))
+                    (keyword name)))
                 (keyword (str *ns*) (subs name 1)))
               (keyword ns name)))
           (err/throw-invalid reader :keyword (str \: token))))

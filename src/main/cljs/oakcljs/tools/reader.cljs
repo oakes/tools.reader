@@ -395,10 +395,10 @@
               (if-not (nil? ns)
                 (if-let [ns (resolve-alias (symbol (subs ns 1)))]
                   (keyword (str ns) name)
-                  (err/throw-invalid reader :keyword (str \: token)))
+                  (keyword name))
                 (if-let [ns *ns*]
                   (keyword (str ns) (subs name 1))
-                  (err/reader-error reader "Invalid token: :" token)))
+                  (keyword (subs name 1))))
               (keyword ns name)))
           (err/throw-invalid reader :keyword (str \: token))))
       (err/throw-single-colon reader))))
