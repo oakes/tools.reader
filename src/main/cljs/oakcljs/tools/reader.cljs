@@ -9,7 +9,7 @@
 (ns ^{:doc "A clojure reader in clojure"
       :author "Bronsa"}
   oakcljs.tools.reader
-  (:refer-clojure :exclude [read read-line read-string char
+  (:refer-clojure :exclude [read read-line read-string char read+string
                             default-data-readers *default-data-reader-fn*
                             *data-readers* *suppress-read*])
   (:require-macros [oakcljs.tools.reader.reader-types :refer [log-source]])
@@ -169,7 +169,7 @@
                ic (.charCodeAt c 0)]
            (if (and (> ic upper-limit)
                     (< ic lower-limit))
-             (err/throw-invalid-character-literal rdr c)
+             (err/throw-invalid-character-literal rdr (.toString ic 16))
              c))
 
          (gstring/startsWith token "o")
@@ -943,7 +943,7 @@
 
    Note that the function signature of oakclojure.tools.reader/read and
    oakclojure.tools.reader.edn/read is not the same for eof-handling"
-  {:arglists '([] [reader] [opts reader] [reader eof-error? eof-value])}
+  {:arglists '([reader] [opts reader] [reader eof-error? eof-value])}
   ([reader] (read reader true nil))
   ([{eof :eof :as opts :or {eof :eofthrow}} reader] (read* reader (= eof :eofthrow) eof nil opts (to-array [])))
   ([reader eof-error? sentinel] (read* reader eof-error? sentinel nil {} (to-array []))))
@@ -959,5 +959,17 @@
   ([s]
    (read-string {} s))
   ([opts s]
-   (when (and s (not (identical? s "")))
-     (read opts (string-push-back-reader s)))))
+     (when (and s (not (identical? s "")))
+       (read opts (string-push-back-reader s)))))
+
+(defn read+string
+  "Like read, and taking the same args. reader must be a SourceLoggingPushbackReader.
+  Returns a vector containing the object read and the (whitespace-trimmed) string read."
+  ([reader & args]
+   (let [buf (fn [reader] (str (:buffer @(.-frames reader))))
+         offset (count (buf reader))
+         o (log-source reader (if (= 1 (count args))
+                                (read (first args) reader)
+                                (apply read reader args)))
+         s (.trim (subs (buf reader) offset))]
+     [o s])))

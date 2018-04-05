@@ -9,11 +9,11 @@
 (ns ^{:doc "A clojure reader in clojure"
       :author "Bronsa"}
   oakclojure.tools.reader
-  (:refer-clojure :exclude [read read-line read-string char
+  (:refer-clojure :exclude [read read-line read-string char read+string
                             default-data-readers *default-data-reader-fn*
                             *read-eval* *data-readers* *suppress-read*])
   (:require [oakclojure.tools.reader.reader-types :refer
-             [read-char unread peek-char indexing-reader?
+             [read-char unread peek-char indexing-reader? source-logging-push-back-reader source-logging-reader?
               get-line-number get-column-number get-file-name string-push-back-reader log-source]]
             [oakclojure.tools.reader.impl.utils :refer :all] ;; [char ex-info? whitespace? numeric? desugar-meta]
             [oakclojure.tools.reader.impl.errors :as err]
@@ -22,6 +22,7 @@
   (:import (clojure.lang PersistentHashSet IMeta
                          RT Symbol Reflector Var IObj
                          PersistentVector IRecord Namespace)
+           clojure.tools.reader.reader_types.SourceLoggingPushbackReader
            java.lang.reflect.Constructor
            (java.util regex.Pattern List LinkedList)))
 
@@ -932,42 +933,41 @@
        (err/reader-error "Reading disallowed - *read-eval* bound to :unknown"))
      (try
        (loop []
-         (log-source reader
-           (if (seq pending-forms)
-             (.remove ^List pending-forms 0)
-             (let [ch (read-char reader)]
-               (cond
-                (whitespace? ch) (recur)
-                (nil? ch) (if eof-error? (err/throw-eof-error reader nil) sentinel)
-                (= ch return-on) READ_FINISHED
-                (number-literal? reader ch) (wrap-value-and-add-metadata read-number reader ch)
-                :else (let [f (macros ch)]
-                        (if f
-                          (let [res (f reader ch opts pending-forms)]
-                            (if (identical? res reader)
-                              (recur)
-                              res))
-                          (wrap-value-and-add-metadata read-symbol reader ch))))))))
-       (catch Exception e
-         (if (ex-info? e)
-           (let [d (ex-data e)]
-             (if (= :reader-exception (:type d))
-               (throw e)
-               (throw (ex-info (.getMessage e)
-                               (merge {:type :reader-exception}
-                                      d
-                                      (if (indexing-reader? reader)
-                                        {:line   (get-line-number reader)
-                                         :column (get-column-number reader)
-                                         :file   (get-file-name reader)}))
-                               e))))
-           (throw (ex-info (.getMessage e)
-                           (merge {:type :reader-exception}
-                                  (if (indexing-reader? reader)
-                                    {:line   (get-line-number reader)
-                                     :column (get-column-number reader)
-                                     :file   (get-file-name reader)}))
-                           e)))))))
+         (let [ret (log-source reader
+                     (if (seq pending-forms)
+                       (.remove ^List pending-forms 0)
+                       (let [ch (read-char reader)]
+                         (cond
+                           (whitespace? ch) reader
+                           (nil? ch) (if eof-error? (err/throw-eof-error reader nil) sentinel)
+                           (= ch return-on) READ_FINISHED
+                           (number-literal? reader ch) (wrap-value-and-add-metadata read-number reader ch)
+                           :else (if-let [f (macros ch)]
+                                   (f reader ch opts pending-forms)
+                                   (wrap-value-and-add-metadata read-symbol reader ch))))))]
+           (if (identical? ret reader)
+             (recur)
+             ret)))
+        (catch Exception e
+          (if (ex-info? e)
+            (let [d (ex-data e)]
+              (if (= :reader-exception (:type d))
+                (throw e)
+                (throw (ex-info (.getMessage e)
+                                (merge {:type :reader-exception}
+                                       d
+                                       (if (indexing-reader? reader)
+                                         {:line   (get-line-number reader)
+                                          :column (get-column-number reader)
+                                          :file   (get-file-name reader)}))
+                                e))))
+            (throw (ex-info (.getMessage e)
+                            (merge {:type :reader-exception}
+                                   (if (indexing-reader? reader)
+                                     {:line   (get-line-number reader)
+                                      :column (get-column-number reader)
+                                      :file   (get-file-name reader)}))
+                            e)))))))
 
 (defn read
   "Reads the first object from an IPushbackReader or a java.io.PushbackReader.
@@ -992,8 +992,16 @@
   {:arglists '([] [reader] [opts reader] [reader eof-error? eof-value])}
   ([] (read *in* true nil))
   ([reader] (read reader true nil))
-  ([{eof :eof :as opts :or {eof :eofthrow}} reader] (read* reader (= eof :eofthrow) eof nil opts (LinkedList.)))
-  ([reader eof-error? sentinel] (read* reader eof-error? sentinel nil {} (LinkedList.))))
+  ([{eof :eof :as opts :or {eof :eofthrow}} reader]
+   (when (source-logging-reader? reader)
+     (let [^StringBuilder buf (:buffer @(.source-log-frames ^SourceLoggingPushbackReader reader))]
+       (.setLength buf 0)))
+   (read* reader (= eof :eofthrow) eof nil opts (LinkedList.)))
+  ([reader eof-error? sentinel]
+   (when (source-logging-reader? reader)
+     (let [^StringBuilder buf (:buffer @(.source-log-frames ^SourceLoggingPushbackReader reader))]
+       (.setLength buf 0)))
+   (read* reader eof-error? sentinel nil {} (LinkedList.))))
 
 (defn read-string
   "Reads one object from the string s.
@@ -1018,3 +1026,14 @@
   [form]
   (binding [gensym-env {}]
     (syntax-quote* form)))
+
+(defn read+string
+  "Like read, and taking the same args. reader must be a SourceLoggingPushbackReader.
+  Returns a vector containing the object read and the (whitespace-trimmed) string read."
+  ([] (read+string (source-logging-push-back-reader *in*)))
+  ([^SourceLoggingPushbackReader reader & args]
+   (let [o (log-source reader (if (= 1 (count args))
+                                (read (first args) reader)
+                                (apply read reader args)))
+         s (.trim (str (:buffer @(.source-log-frames reader))))]
+     [o s])))

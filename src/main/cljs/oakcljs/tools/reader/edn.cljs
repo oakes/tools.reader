@@ -114,8 +114,8 @@
                    (recur (inc i) (+ d (* uc base)))))))
            (js/String.fromCharCode uc))))))
 
-(def ^:private ^:const upper-limit (int \uD7ff))
-(def ^:private ^:const lower-limit (int \uE000))
+(def ^:private ^:const upper-limit (.charCodeAt \uD7ff 0))
+(def ^:private ^:const lower-limit (.charCodeAt \uE000 0))
 
 (defn- read-char*
   [rdr backslash opts]
@@ -143,7 +143,7 @@
                ic (.charCodeAt c)]
            (if (and (> ic upper-limit)
                     (< ic lower-limit))
-             (err/throw-invalid-character-literal rdr c)
+             (err/throw-invalid-character-literal rdr (.toString ic 16))
              c))
 
          (gstring/startsWith token "o")
