@@ -478,7 +478,8 @@
   "Read next feature. If matched, read next form and return.
    Otherwise, read and skip next form, returning READ_FINISHED or nil."
   [first-line rdr opts pending-forms]
-  (let [feature (read* rdr false READ_EOF \) opts pending-forms)]
+  (let [feature (binding [*wrap-value-and-add-metadata?* false]
+                  (read* rdr false READ_EOF \) opts pending-forms))]
     (check-eof-error feature rdr first-line)
     (if (= feature READ_FINISHED)
       READ_FINISHED
