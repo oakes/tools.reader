@@ -22,7 +22,7 @@
   (:import (clojure.lang PersistentHashSet IMeta
                          RT Symbol Reflector Var IObj
                          PersistentVector IRecord Namespace)
-           clojure.tools.reader.reader_types.SourceLoggingPushbackReader
+           oakclojure.tools.reader.reader_types.SourceLoggingPushbackReader
            java.lang.reflect.Constructor
            (java.util regex.Pattern List LinkedList)))
 
@@ -1032,9 +1032,12 @@
   "Like read, and taking the same args. reader must be a SourceLoggingPushbackReader.
   Returns a vector containing the object read and the (whitespace-trimmed) string read."
   ([] (read+string (source-logging-push-back-reader *in*)))
-  ([^SourceLoggingPushbackReader reader & args]
-   (let [o (log-source reader (if (= 1 (count args))
-                                (read (first args) reader)
-                                (apply read reader args)))
-         s (.trim (str (:buffer @(.source-log-frames reader))))]
+  ([stream] (read+string stream true nil))
+  ([^SourceLoggingPushbackReader stream eof-error? eof-value]
+   (let [o (log-source stream (read stream eof-error? eof-value))
+         s (.trim (str (:buffer @(.source-log-frames stream))))]
+     [o s]))
+  ([opts ^SourceLoggingPushbackReader stream]
+   (let [o (log-source stream (read opts stream))
+         s (.trim (str (:buffer @(.source-log-frames stream))))]
      [o s])))

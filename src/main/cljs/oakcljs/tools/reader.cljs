@@ -19,7 +19,7 @@
               string-push-back-reader]]
             [oakcljs.tools.reader.impl.utils :refer
              [char ex-info? whitespace? numeric? desugar-meta next-id namespace-keys second'
-              ReaderConditional reader-conditional reader-conditional?]]
+              ReaderConditional reader-conditional reader-conditional? char-code]]
             [oakcljs.tools.reader.impl.commons :refer
              [number-literal? read-past match-number parse-symbol read-comment throwing-reader]]
             [oakcljs.tools.reader.impl.errors :as err]
@@ -98,12 +98,6 @@
                   (err/throw-eof-reading rdr :regex sb))
                 (.append sb ch)))
             (recur (read-char rdr))))))))
-
-(defn- char-code [ch base]
-  (let [code (js/parseInt ch base)]
-    (if (js/isNaN code)
-      -1
-      code)))
 
 (defn- read-unicode-char
   ([token offset length base]
@@ -931,7 +925,7 @@
 (defn read
   "Reads the first object from an IPushbackReader.
    Returns the object read. If EOF, throws if eof-error? is true.
-   Otherwise returns sentinel. If no stream is providen, *in* will be used.
+   Otherwise returns sentinel. If no stream is provided, *in* will be used.
 
    Opts is a persistent map with valid keys:
     :read-cond - :allow to process reader conditionals, or
@@ -940,10 +934,10 @@
     :eof - on eof, return value unless :eofthrow, then throw.
            if not specified, will throw
 
-   To read data structures only, use oakclojure.tools.reader.edn/read
+   To read data structures only, use cljs.tools.reader.edn/read
 
-   Note that the function signature of oakclojure.tools.reader/read and
-   oakclojure.tools.reader.edn/read is not the same for eof-handling"
+   Note that the function signature of cljs.tools.reader/read and
+   cljs.tools.reader.edn/read is not the same for eof-handling"
   {:arglists '([reader] [opts reader] [reader eof-error? eof-value])}
   ([reader] (read reader true nil))
   ([{eof :eof :as opts :or {eof :eofthrow}} reader] (read* reader (= eof :eofthrow) eof nil opts (to-array [])))
@@ -953,10 +947,10 @@
   "Reads one object from the string s.
    Returns nil when s is nil or empty.
 
-   To read data structures only, use oakclojure.tools.reader.edn/read-string
+   To read data structures only, use cljs.tools.reader.edn/read-string
 
-   Note that the function signature of oakclojure.tools.reader/read-string and
-   oakclojure.tools.reader.edn/read-string is not the same for eof-handling"
+   Note that the function signature of cljs.tools.reader/read-string and
+   cljs.tools.reader.edn/read-string is not the same for eof-handling"
   ([s]
    (read-string {} s))
   ([opts s]
@@ -966,11 +960,16 @@
 (defn read+string
   "Like read, and taking the same args. reader must be a SourceLoggingPushbackReader.
   Returns a vector containing the object read and the (whitespace-trimmed) string read."
-  ([reader & args]
-   (let [buf (fn [reader] (str (:buffer @(.-frames reader))))
-         offset (count (buf reader))
-         o (log-source reader (if (= 1 (count args))
-                                (read (first args) reader)
-                                (apply read reader args)))
-         s (.trim (subs (buf reader) offset))]
+  ([stream] (read+string stream true nil))
+  ([stream eof-error? eof-value]
+   (let [buf (fn [reader] (str (:buffer @(.-frames stream))))
+         offset (count (buf stream))
+         o (log-source stream (read stream eof-error? eof-value))
+         s (.trim (subs (buf stream) offset))]
+     [o s]))
+  ([opts stream]
+   (let [buf (fn [reader] (str (:buffer @(.-frames stream))))
+         offset (count (buf stream))
+         o (log-source stream (read opts stream))
+         s (.trim (subs (buf stream) offset))]
      [o s])))

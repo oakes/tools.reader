@@ -15,10 +15,10 @@
              [read-char unread peek-char indexing-reader?
               get-line-number get-column-number get-file-name string-push-back-reader]]
             [oakcljs.tools.reader.impl.utils :refer
-             [char ex-info? whitespace? numeric? desugar-meta namespace-keys second']]
+             [char ex-info? whitespace? numeric? desugar-meta namespace-keys second' char-code]]
             [oakcljs.tools.reader.impl.commons :refer
              [number-literal? read-past match-number parse-symbol read-comment throwing-reader]]
-            [oakcljs.tools.reader :refer [default-data-readers char-code]]
+            [oakcljs.tools.reader :refer [default-data-readers]]
             [goog.string :as gstring])
   (:import goog.string.StringBuffer))
 
@@ -385,7 +385,7 @@
    Reads data in the edn format (subset of Clojure data):
    http://edn-format.org
 
-   oakclojure.tools.reader.edn/read doesn't depend on dynamic Vars, all configuration
+   cljs.tools.reader.edn/read doesn't depend on dynamic Vars, all configuration
    is done by passing an opt map.
 
    opts is a map that can include the following keys:
@@ -441,7 +441,7 @@
    Reads data in the edn format (subset of Clojure data):
    http://edn-format.org
 
-   opts is a map as per oakclojure.tools.reader.edn/read"
+   opts is a map as per cljs.tools.reader.edn/read"
   ([s] (read-string {:eof nil} s))
   ([opts s]
      (when (and s (not= s ""))
