@@ -87,7 +87,7 @@
   (let [sb (StringBuffer.)]
     (loop [ch (read-char rdr)]
       (if (identical? \" ch)
-        (re-pattern (str sb))
+        (str sb)
         (if (nil? ch)
           (err/throw-eof-reading rdr :regex sb)
           (do
@@ -212,10 +212,10 @@
 
 (def ^:dynamic *wrap-value-and-add-metadata?* false)
 
-(defn- wrap-value-and-add-metadata [f rdr & args]
+(defn- wrap-value-and-add-metadata [rdr f]
   (if *wrap-value-and-add-metadata?*
     (let [[start-line start-column] (starting-line-col-info rdr)
-          val (apply f rdr args)
+          val (f)
           [end-line end-column] (ending-line-col-info rdr)]
       (if (meta val)
         val
@@ -229,7 +229,7 @@
              :end-line end-line
              :end-column end-column
              :wrapped? true}))))
-    (apply f rdr args)))
+    (f)))
 
 (defn- read-list
   "Read in a list, including its location if the reader is an indexing reader"
@@ -797,10 +797,10 @@
 
 (defn- macros [ch]
   (case ch
-    \" (fn [reader & args]
-         (apply wrap-value-and-add-metadata read-string* reader args))
-    \: (fn [reader & args]
-         (apply wrap-value-and-add-metadata read-keyword reader args))
+    \" (fn [reader ch opts pf]
+         (wrap-value-and-add-metadata reader #(read-string* reader ch opts pf)))
+    \: (fn [reader ch opts pf]
+         (wrap-value-and-add-metadata reader #(read-keyword reader ch opts pf)))
     \; read-comment
     \' (wrapping-reader 'quote)
     \@ (wrapping-reader 'clojure.core/deref)
@@ -813,10 +813,11 @@
     \] read-unmatched-delimiter
     \{ read-map
     \} read-unmatched-delimiter
-    \\ (fn [reader & args]
-         (apply wrap-value-and-add-metadata read-char* reader args))
+    \\ (fn [reader ch opts pf]
+         (wrap-value-and-add-metadata reader #(read-char* reader ch opts pf)))
     \% read-arg
-    \# read-dispatch
+    \# (fn [reader ch opts pf]
+         (wrap-value-and-add-metadata reader #(read-dispatch reader ch opts pf)))
     nil))
 
 (defn- dispatch-macros [ch]
@@ -840,7 +841,7 @@
     (if-not (symbol? tag)
       (err/throw-bad-reader-tag rdr tag))
     (if *suppress-read*
-      (tagged-literal tag (read* rdr true nil opts pending-forms))
+      (read* rdr true nil opts pending-forms)
       (if-let [f (or (*data-readers* tag)
                      (default-data-readers tag))]
         (f (read* rdr true nil opts pending-forms))
@@ -886,14 +887,14 @@
             (whitespace? ch) (recur)
             (nil? ch) (if eof-error? (err/throw-eof-error reader nil) sentinel)
             (identical? ch return-on) READ_FINISHED
-            (number-literal? reader ch) (wrap-value-and-add-metadata read-number reader ch)
+            (number-literal? reader ch) (wrap-value-and-add-metadata reader #(read-number reader ch))
             :else (let [f (macros ch)]
                     (if-not (nil? f)
                       (let [res (f reader ch opts pending-forms)]
                         (if (identical? res reader)
                           (recur)
                           res))
-                      (wrap-value-and-add-metadata read-symbol reader ch)))))))))
+                      (wrap-value-and-add-metadata reader #(read-symbol reader ch))))))))))
 
 (defn- read*
   ([reader eof-error? sentinel opts pending-forms]
