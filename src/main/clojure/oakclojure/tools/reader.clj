@@ -264,7 +264,7 @@
         map-count (count the-map)
         [end-line end-column] (ending-line-col-info rdr)]
     (with-meta
-      (if (zero? map-count)
+      (if (or (odd? map-count) (zero? map-count))
         {}
         (RT/map (to-array the-map)))
       (when start-line
@@ -787,10 +787,12 @@
       (let [ch (read-past whitespace? rdr)]
         (if (identical? ch \{)
           (let [items (read-delimited :namespaced-map \} rdr opts pending-forms)]
-            (let [keys (take-nth 2 items)
-                  vals (take-nth 2 (rest items))]
+            (if (odd? (count items))
+              {}
+              (let [keys (take-nth 2 items)
+                    vals (take-nth 2 (rest items))]
 
-              (RT/map (to-array (mapcat list (namespace-keys (str ns) keys) vals)))))
+                (RT/map (to-array (mapcat list (namespace-keys (str ns) keys) vals))))))
           (err/throw-ns-map-no-map rdr token)))
       (err/throw-bad-ns rdr token))))
 
